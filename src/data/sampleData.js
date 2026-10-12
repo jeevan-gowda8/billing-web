@@ -156,3 +156,42 @@ export const SAMPLE_TEAM_ROSTER = [
     memberNotes: "Field technician"
   }
 ];
+
+export const SAMPLE_COMPANY_MEMBERS = [
+  {
+    id: 1,
+    memberName: "Jeevan Gowda A V",
+    memberEmail: "jeevan@abhyudaya.tech",
+    designation: "Functional Manager",
+    department: "Engineering",
+    isAdvanceHolder: "Yes",
+    defaultNotes: "Project Lead"
+  },
+  {
+    id: 2,
+    memberName: "Bharath L",
+    memberEmail: "Bharath@abhyudyayatech.com",
+    designation: "Intern",
+    department: "Operations",
+    isAdvanceHolder: "No",
+    defaultNotes: "Field Operations"
+  },
+  {
+    id: 3,
+    memberName: "Rahul Sharma",
+    memberEmail: "rahul@abhyudaya.tech",
+    designation: "Engineer",
+    department: "Project Management",
+    isAdvanceHolder: "No",
+    defaultNotes: "On-site Engineer"
+  },
+  {
+    id: 4,
+    memberName: "Priya Patel",
+    memberEmail: "priya@abhyudaya.tech",
+    designation: "Technician",
+    department: "Service",
+    isAdvanceHolder: "No",
+    defaultNotes: "Hardware Testing"
+  }
+];
