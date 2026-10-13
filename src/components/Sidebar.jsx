@@ -74,6 +74,29 @@ export default function Sidebar({ activeTab, setActiveTab, memberCount }) {
           <span className="material-symbols-outlined">calculate</span>
           <span>Policy Rate Matrix & Calc</span>
         </button>
+
+        <button
+          type="button"
+          className={`sidebar-nav-item ${activeTab === "export" ? "active" : ""}`}
+          onClick={() => setActiveTab("export")}
+        >
+          <span className="material-symbols-outlined">ios_share</span>
+          <span>Export & Reports</span>
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: "10px",
+              fontWeight: 700,
+              padding: "1px 6px",
+              borderRadius: "10px",
+              backgroundColor: activeTab === "export" ? "rgba(255, 255, 255, 0.25)" : "#dcfce7",
+              color: activeTab === "export" ? "#ffffff" : "#15803d",
+              textTransform: "uppercase"
+            }}
+          >
+            Excel
+          </span>
+        </button>
       </nav>
 
       {/* Footer Version */}

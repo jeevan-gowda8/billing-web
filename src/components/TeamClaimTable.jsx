@@ -9,10 +9,13 @@ export default function TeamClaimTable({
   onDeleteTour,
   onOpenRosterManager,
   onExportExcel,
+  onExportSiteExpense,
+  onOpenExportTab,
   isExporting
 }) {
   const [activeSubView, setActiveSubView] = useState("claims"); // "claims" | "roster"
   const [searchTerm, setSearchTerm] = useState("");
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const filteredTourClaims = tourClaims.filter((tc) => {
     if (!searchTerm.trim()) return true;
@@ -61,21 +64,151 @@ export default function TeamClaimTable({
             <span>Manage Roster ({rosterRows.length})</span>
           </button>
 
-          <button
-            type="button"
-            className="btn-stitch-secondary"
-            onClick={onExportExcel}
-            disabled={isExporting}
-            title="Download Excel spreadsheet matching Team_Group_Reimbursement_Template.xlsx"
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: "18px", color: "var(--tertiary-container)" }}
+          {/* Export Dropdown */}
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className="btn-stitch-secondary"
+              onClick={() => setShowExportMenu((prev) => !prev)}
+              disabled={isExporting}
+              title="Export team tour claims to Excel"
+              style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
             >
-              table_view
-            </span>
-            <span>{isExporting ? "Exporting..." : "Export .xlsx"}</span>
-          </button>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: "18px", color: "var(--tertiary-container)" }}
+              >
+                table_view
+              </span>
+              <span>{isExporting ? "Exporting..." : "Export .xlsx"}</span>
+              <span className="material-symbols-outlined" style={{ fontSize: "16px", marginLeft: "2px" }}>
+                arrow_drop_down
+              </span>
+            </button>
+
+            {showExportMenu && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  left: 0,
+                  backgroundColor: "var(--surface-container-lowest)",
+                  border: "1px solid var(--outline-variant)",
+                  borderRadius: "0.5rem",
+                  boxShadow: "var(--shadow-lg)",
+                  zIndex: 50,
+                  minWidth: "270px",
+                  padding: "0.35rem 0",
+                  display: "flex",
+                  flexDirection: "column"
+                }}
+              >
+                <div style={{ padding: "0.4rem 0.85rem", fontSize: "11px", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Select Excel Template
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExportMenu(false);
+                    onExportExcel();
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.6rem 0.85rem",
+                    background: "none",
+                    border: "none",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    color: "var(--on-surface)",
+                    transition: "var(--transition)"
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-container)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "var(--primary)" }}>
+                    groups
+                  </span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Team Tour Reimbursement</div>
+                    <div style={{ fontSize: "11px", color: "var(--on-surface-variant)" }}>Group Tour & Roster Template</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExportMenu(false);
+                    if (onExportSiteExpense) {
+                      onExportSiteExpense();
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.6rem 0.85rem",
+                    background: "none",
+                    border: "none",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    color: "var(--on-surface)",
+                    transition: "var(--transition)"
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-container)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "18px", color: "#16a34a" }}>
+                    directions_car
+                  </span>
+                  <div>
+                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                      <span>Site Expense / Tour Bill</span>
+                      <span style={{ fontSize: "9px", backgroundColor: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: "8px", fontWeight: 700 }}>NEW</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--on-surface-variant)" }}>Format matched to SITE EXPENSE.xlsx</div>
+                  </div>
+                </button>
+
+                {onOpenExportTab && (
+                  <>
+                    <div style={{ height: "1px", backgroundColor: "var(--outline-variant)", margin: "0.25rem 0" }}></div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExportMenu(false);
+                        onOpenExportTab();
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        padding: "0.5rem 0.85rem",
+                        background: "none",
+                        border: "none",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        color: "var(--primary)",
+                        fontWeight: 600
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-container)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>
+                        open_in_new
+                      </span>
+                      <span>Customize in Export Center</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Sub-view switcher */}
           <div style={{ display: "flex", gap: "0.25rem", background: "var(--surface-container)", padding: "3px", borderRadius: "0.5rem", marginLeft: "0.5rem" }}>

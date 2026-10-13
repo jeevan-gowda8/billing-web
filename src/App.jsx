@@ -11,6 +11,7 @@ import TeamRosterModal from "./components/TeamRosterModal";
 import AiScannerModal from "./components/AiScannerModal";
 import PolicyMatrixView from "./components/PolicyMatrixView";
 import MembersDirectoryView from "./components/MembersDirectoryView";
+import ExportReportsView from "./components/ExportReportsView";
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
 import Footer from "./components/Footer";
@@ -35,7 +36,9 @@ import {
 
 import {
   generateSingleEmployeeExcel,
-  generateTeamTourExcel
+  generateTeamTourExcel,
+  generateSiteExpenseExcel,
+  mapClaimsToSiteExpenseRows
 } from "./utils/excelGenerator";
 
 export default function App() {
@@ -306,6 +309,56 @@ export default function App() {
     }
   };
 
+  const handleExportSingleSiteExpense = async () => {
+    if (singleClaims.length === 0) {
+      alert("Please add at least one claim before exporting to Site Expense format.");
+      return;
+    }
+    try {
+      setIsExporting(true);
+      const rows = mapClaimsToSiteExpenseRows(singleClaims);
+      await generateSiteExpenseExcel({
+        companyName: "INTELITEK EDU SOLUTIONS",
+        employeeName: singleClaims[0]?.employeeName || "Employee",
+        placeVisited: singleClaims[0]?.cityTier || singleClaims[0]?.projectName || "Site",
+        purposeOfVisit: singleClaims[0]?.projectName || "Official Tour",
+        advanceTaken: 10000,
+        rows
+      });
+      showToast("Site Expense / Tour Bill Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Error exporting Site Expense Excel: " + err.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportTeamSiteExpense = async () => {
+    if (teamClaims.length === 0) {
+      alert("Please add at least one team tour claim before exporting to Site Expense format.");
+      return;
+    }
+    try {
+      setIsExporting(true);
+      const rows = mapClaimsToSiteExpenseRows(teamClaims);
+      await generateSiteExpenseExcel({
+        companyName: "INTELITEK EDU SOLUTIONS",
+        employeeName: teamClaims[0]?.advanceHolderName || "Tour Lead",
+        placeVisited: teamClaims[0]?.cityTier || teamClaims[0]?.tourTitle || "Site",
+        purposeOfVisit: teamClaims[0]?.tourTitle || "Group Tour",
+        advanceTaken: 15000,
+        rows
+      });
+      showToast("Team Site Expense / Tour Bill Excel exported successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Error exporting Site Expense Excel: " + err.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleAddNewContextual = () => {
     if (activeTab === "single") {
       setEditingSingleClaim(null);
@@ -446,6 +499,8 @@ export default function App() {
               }}
               onDelete={handleDeleteSingleClaim}
               onExportExcel={handleExportSingleExcel}
+              onExportSiteExpense={handleExportSingleSiteExpense}
+              onOpenExportTab={() => setActiveTab("export")}
               isExporting={isExporting}
             />
           )}
@@ -465,6 +520,8 @@ export default function App() {
               onDeleteTour={handleDeleteTeamClaim}
               onOpenRosterManager={handleOpenRosterManager}
               onExportExcel={handleExportTeamExcel}
+              onExportSiteExpense={handleExportTeamSiteExpense}
+              onOpenExportTab={() => setActiveTab("export")}
               isExporting={isExporting}
             />
           )}
@@ -481,6 +538,16 @@ export default function App() {
           )}
 
           {activeTab === "policy" && <PolicyMatrixView />}
+
+          {activeTab === "export" && (
+            <ExportReportsView
+              singleClaims={singleClaims}
+              teamClaims={teamClaims}
+              rosterRows={rosterRows}
+              companyMembers={companyMembers}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
+          )}
         </main>
 
         {/* Bottom Footer */}
