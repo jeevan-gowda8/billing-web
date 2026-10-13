@@ -158,6 +158,155 @@ function downloadBlob(blob, filename) {
 }
 
 /**
+ * Extracts base64 payload and image format extension (jpeg/png)
+ */
+export function parseImageData(dataUrlOrBase64) {
+  if (!dataUrlOrBase64 || typeof dataUrlOrBase64 !== "string") return null;
+  const match = dataUrlOrBase64.match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/i);
+  if (match) {
+    let ext = match[1].toLowerCase();
+    if (ext === "jpg") ext = "jpeg";
+    if (ext === "webp") ext = "png";
+    return {
+      extension: ext === "png" ? "png" : "jpeg",
+      base64: match[2]
+    };
+  }
+  if (dataUrlOrBase64.length > 50 && !dataUrlOrBase64.startsWith("data:")) {
+    return {
+      extension: "jpeg",
+      base64: dataUrlOrBase64
+    };
+  }
+  return null;
+}
+
+/**
+ * Appends a dedicated, cleanly formatted "Attached Receipts" worksheet
+ * displaying each uploaded bill / receipt image alongside claim metadata.
+ */
+function appendAttachedReceiptsSheet(workbook, items, sheetName = "Attached Receipts") {
+  const receiptItems = (items || []).filter(
+    (item) => item && (item.receiptImage || item.receipt_image)
+  );
+  if (receiptItems.length === 0) return null;
+
+  const ws = workbook.addWorksheet(sheetName, {
+    views: [{ showGridLines: true }]
+  });
+
+  ws.columns = [
+    { width: 5 },   // A: Margin
+    { width: 16 },  // B: Ref/Sl
+    { width: 22 },  // C: Name
+    { width: 16 },  // D: Date
+    { width: 22 },  // E: Category / Vendor
+    { width: 18 },  // F: Bill No
+    { width: 16 },  // G: Amount
+    { width: 55 }   // H: Receipt Image Display
+  ];
+
+  // Title Banner
+  ws.mergeCells("B2:H2");
+  const titleCell = ws.getCell("B2");
+  titleCell.value = `ATTACHED BILL & EXPENSE RECEIPT AUDIT PROOFS (${receiptItems.length} ATTACHED)`;
+  titleCell.font = { name: "Calibri", size: 14, bold: true, color: { argb: COLOR_WHITE } };
+  titleCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: COLOR_NAVY }
+  };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  ws.getRow(2).height = 32;
+
+  let currentRow = 4;
+
+  receiptItems.forEach((item, idx) => {
+    const imgData = parseImageData(item.receiptImage || item.receipt_image);
+    if (!imgData) return;
+
+    const startRow = currentRow;
+    const endRow = currentRow + 11; // 12 rows tall for large receipt view
+
+    for (let r = startRow; r <= endRow; r++) {
+      ws.getRow(r).height = 20;
+    }
+
+    // Card Header
+    ws.mergeCells(`B${startRow}:G${startRow}`);
+    const cardHeader = ws.getCell(`B${startRow}`);
+    const claimRef = item.tourClaimRef || `CLAIM #${item.id || idx + 1}`;
+    const name = item.employeeName || item.advanceHolderName || "Employee";
+    cardHeader.value = `RECEIPT ${idx + 1}: ${claimRef} — ${name}`;
+    cardHeader.font = { name: "Calibri", size: 11, bold: true, color: { argb: COLOR_NAVY } };
+    cardHeader.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: COLOR_ROW_ALT }
+    };
+    cardHeader.alignment = { vertical: "middle", horizontal: "left" };
+    cardHeader.border = DEFAULT_BORDER;
+
+    // Metadata lines
+    const metaFields = [
+      ["Date:", formatDateDMY(item.expenseDate || item.date) || "-"],
+      ["Category:", item.category || item.modeOfTravel || "-"],
+      ["Vendor / Establishment:", item.vendorName || item.stationFrom || "-"],
+      ["Invoice / Bill No:", item.billNumber || "-"],
+      ["Claim Amount:", `₹${Number(item.claimAmount || item.totalBillAmount || item.fare || 0).toLocaleString("en-IN")}`],
+      ["Payment Mode / Who Paid:", item.whoPaid || item.modeOfFare || "-"],
+      ["Project / Title:", item.projectName || item.tourTitle || "-"],
+      ["Remarks:", item.remarks || "-"]
+    ];
+
+    metaFields.forEach(([label, val], mIdx) => {
+      const rNum = startRow + 1 + mIdx;
+      if (rNum <= endRow) {
+        ws.mergeCells(`B${rNum}:C${rNum}`);
+        const lblCell = ws.getCell(`B${rNum}`);
+        lblCell.value = label;
+        lblCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: COLOR_SUBTITLE } };
+        lblCell.alignment = { vertical: "middle", horizontal: "left" };
+        lblCell.border = DEFAULT_BORDER;
+
+        ws.mergeCells(`D${rNum}:G${rNum}`);
+        const valCell = ws.getCell(`D${rNum}`);
+        valCell.value = String(val);
+        valCell.font = { name: "Calibri", size: 10, color: { argb: COLOR_TEXT_DARK } };
+        valCell.alignment = { vertical: "middle", horizontal: "left" };
+        valCell.border = DEFAULT_BORDER;
+      }
+    });
+
+    // Merge image cell area in Column H
+    ws.mergeCells(`H${startRow}:H${endRow}`);
+    const imgCell = ws.getCell(`H${startRow}`);
+    imgCell.border = DEFAULT_BORDER;
+    imgCell.alignment = { vertical: "middle", horizontal: "center" };
+
+    try {
+      const imageId = workbook.addImage({
+        base64: imgData.base64,
+        extension: imgData.extension
+      });
+
+      ws.addImage(imageId, {
+        tl: { col: 7 + 0.05, row: startRow - 1 + 0.05 },
+        br: { col: 8 - 0.05, row: endRow - 0.05 },
+        editAs: "oneCell"
+      });
+    } catch (err) {
+      console.warn("Could not embed receipt image in ExcelJS:", err);
+      imgCell.value = "[Receipt Image Attached]";
+    }
+
+    currentRow = endRow + 2;
+  });
+
+  return ws;
+}
+
+/**
  * Generates and downloads the Single Employee Reimbursement Excel
  */
 export async function generateSingleEmployeeExcel(claims) {
@@ -186,11 +335,12 @@ export async function generateSingleEmployeeExcel(claims) {
     { width: 22 }, // Who Paid? *
     { width: 25 }, // Employee Payout UPI ID
     { width: 22 }, // Project / Client Name
-    { width: 32 }  // Business Purpose & Remarks
+    { width: 32 }, // Business Purpose & Remarks
+    { width: 22 }  // Bill / Receipt Attachment
   ];
 
   // Row 1 Title
-  ws.mergeCells("A1:P1");
+  ws.mergeCells("A1:Q1");
   const r1 = ws.getCell("A1");
   r1.value = "ABHYUDAYA TECHNO SOLUTIONS — INDIVIDUAL REIMBURSEMENT CLAIM FORM";
   r1.font = { name: "Calibri", size: 14, bold: true, color: { argb: COLOR_NAVY } };
@@ -198,7 +348,7 @@ export async function generateSingleEmployeeExcel(claims) {
   ws.getRow(1).height = 26;
 
   // Row 2 Instructions
-  ws.mergeCells("A2:P2");
+  ws.mergeCells("A2:Q2");
   const r2 = ws.getCell("A2");
   r2.value = "Instructions: Fill your individual tour expenses below. Attach valid GST tax invoice/bill receipts. Reimbursements will be verified against ATS handbook policy limits.";
   r2.font = { name: "Calibri", size: 9, color: { argb: COLOR_SUBTITLE } };
@@ -225,7 +375,8 @@ export async function generateSingleEmployeeExcel(claims) {
     "Who Paid? *",
     "Employee Payout UPI ID",
     "Project / Client Name",
-    "Business Purpose & Remarks"
+    "Business Purpose & Remarks",
+    "Bill / Receipt Proof"
   ];
 
   const headerRow = ws.getRow(4);
@@ -302,7 +453,34 @@ export async function generateSingleEmployeeExcel(claims) {
       row.getCell(16).value = claim.remarks || "";
       row.getCell(16).alignment = { vertical: "middle", horizontal: "left" };
 
-      for (let c = 1; c <= 16; c++) {
+      // Column 17: Receipt Image Thumbnail if attached
+      const receiptImg = claim.receiptImage || claim.receipt_image;
+      const imgData = parseImageData(receiptImg);
+      if (imgData) {
+        try {
+          const imageId = workbook.addImage({
+            base64: imgData.base64,
+            extension: imgData.extension
+          });
+          row.height = 55;
+          ws.addImage(imageId, {
+            tl: { col: 16 + 0.05, row: rowNum - 1 + 0.05 },
+            ext: { width: 120, height: 48 },
+            editAs: "oneCell"
+          });
+          row.getCell(17).value = "📎 Attached";
+          row.getCell(17).alignment = { vertical: "bottom", horizontal: "center" };
+        } catch (e) {
+          console.warn("Could not embed row thumbnail", e);
+          row.getCell(17).value = "📎 Attached";
+          row.getCell(17).alignment = { vertical: "middle", horizontal: "center" };
+        }
+      } else {
+        row.getCell(17).value = "—";
+        row.getCell(17).alignment = { vertical: "middle", horizontal: "center" };
+      }
+
+      for (let c = 1; c <= 17; c++) {
         const cell = row.getCell(c);
         cell.font = { name: "Calibri", size: 10, color: { argb: COLOR_TEXT_DARK } };
         cell.border = DEFAULT_BORDER;
@@ -318,7 +496,7 @@ export async function generateSingleEmployeeExcel(claims) {
       // Empty template rows with Sl No
       row.getCell(1).value = idx + 1;
       row.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
-      for (let c = 1; c <= 16; c++) {
+      for (let c = 1; c <= 17; c++) {
         const cell = row.getCell(c);
         cell.font = { name: "Calibri", size: 10, color: { argb: COLOR_TEXT_DARK } };
         cell.border = DEFAULT_BORDER;
@@ -328,6 +506,9 @@ export async function generateSingleEmployeeExcel(claims) {
 
   // Sheet 2: ATS Policy Rate Matrix
   appendPolicyRateMatrixSheet(workbook);
+
+  // Sheet 3: Attached Receipts (High-res audit sheet if any bills uploaded)
+  appendAttachedReceiptsSheet(workbook, claims, "Attached Bill Receipts");
 
   // Write and trigger download
   const buffer = await workbook.xlsx.writeBuffer();
@@ -368,11 +549,12 @@ export async function generateTeamTourExcel(tourClaims, rosterRows) {
     { width: 20 }, // Total Bill Amount (₹) *
     { width: 18 }, // Team Size (Count) *
     { width: 45 }, // Covered Team Members (Names & Designations) *
-    { width: 32 }  // Business Purpose & Remarks
+    { width: 32 }, // Business Purpose & Remarks
+    { width: 22 }  // Bill / Receipt Proof
   ];
 
   // Row 1 Title
-  wsClaims.mergeCells("A1:Q1");
+  wsClaims.mergeCells("A1:R1");
   const r1 = wsClaims.getCell("A1");
   r1.value = "ABHYUDAYA TECHNO SOLUTIONS — GROUP / TEAM TOUR REIMBURSEMENT FORM";
   r1.font = { name: "Calibri", size: 14, bold: true, color: { argb: COLOR_NAVY } };
@@ -380,7 +562,7 @@ export async function generateTeamTourExcel(tourClaims, rosterRows) {
   wsClaims.getRow(1).height = 26;
 
   // Row 2 Subtitle
-  wsClaims.mergeCells("A2:Q2");
+  wsClaims.mergeCells("A2:R2");
   const r2 = wsClaims.getCell("A2");
   r2.value = "Instructions: Use this sheet when an advance holder spends on behalf of a traveling team. Ceilings are calculated by summing each member's individual ATS handbook limit.";
   r2.font = { name: "Calibri", size: 9, color: { argb: COLOR_SUBTITLE } };
@@ -406,7 +588,8 @@ export async function generateTeamTourExcel(tourClaims, rosterRows) {
     "Total Bill Amount (₹) *",
     "Team Size (Count) *",
     "Covered Team Members (Names & Designations) *",
-    "Business Purpose & Remarks"
+    "Business Purpose & Remarks",
+    "Bill / Receipt Proof"
   ];
 
   const headerRow = wsClaims.getRow(4);
@@ -492,7 +675,34 @@ export async function generateTeamTourExcel(tourClaims, rosterRows) {
       row.getCell(17).value = tc.remarks || "";
       row.getCell(17).alignment = { vertical: "middle", horizontal: "left" };
 
-      for (let c = 1; c <= 17; c++) {
+      // Column 18: Receipt Image Thumbnail if attached
+      const receiptImg = tc.receiptImage || tc.receipt_image;
+      const imgData = parseImageData(receiptImg);
+      if (imgData) {
+        try {
+          const imageId = workbook.addImage({
+            base64: imgData.base64,
+            extension: imgData.extension
+          });
+          row.height = 55;
+          wsClaims.addImage(imageId, {
+            tl: { col: 17 + 0.05, row: rowNum - 1 + 0.05 },
+            ext: { width: 120, height: 48 },
+            editAs: "oneCell"
+          });
+          row.getCell(18).value = "📎 Attached";
+          row.getCell(18).alignment = { vertical: "bottom", horizontal: "center" };
+        } catch (e) {
+          console.warn("Could not embed tour row thumbnail", e);
+          row.getCell(18).value = "📎 Attached";
+          row.getCell(18).alignment = { vertical: "middle", horizontal: "center" };
+        }
+      } else {
+        row.getCell(18).value = "—";
+        row.getCell(18).alignment = { vertical: "middle", horizontal: "center" };
+      }
+
+      for (let c = 1; c <= 18; c++) {
         const cell = row.getCell(c);
         cell.font = { name: "Calibri", size: 10, color: { argb: COLOR_TEXT_DARK } };
         cell.border = DEFAULT_BORDER;
@@ -508,7 +718,7 @@ export async function generateTeamTourExcel(tourClaims, rosterRows) {
       // Empty template rows
       row.getCell(1).value = `TOUR-${String(idx + 1).padStart(3, "0")}`;
       row.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
-      for (let c = 1; c <= 17; c++) {
+      for (let c = 1; c <= 18; c++) {
         const cell = row.getCell(c);
         cell.font = { name: "Calibri", size: 10, color: { argb: COLOR_TEXT_DARK } };
         cell.border = DEFAULT_BORDER;
@@ -638,6 +848,9 @@ export async function generateTeamTourExcel(tourClaims, rosterRows) {
     "For team claims, each member's designation rate is added together. Example: Manager (₹2,500) + Engineer (₹1,200) + Technician (₹1,200) = ₹4,900/day hotel limit."
   );
 
+  // Sheet 4: Attached Tour Receipts (High-res audit sheet if any bills uploaded)
+  appendAttachedReceiptsSheet(workbook, tourClaims, "Attached Tour Receipts");
+
   // Write and trigger download
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
@@ -754,7 +967,11 @@ export function mapClaimsToSiteExpenseRows(claims) {
       lodgingAllows: lodging,
       boardingAllows: boarding,
       foodExpenses: food,
-      miscExpenses: misc
+      miscExpenses: misc,
+      receiptImage: c.receiptImage || c.receipt_image,
+      employeeName: c.employeeName || c.advanceHolderName,
+      vendorName: c.vendorName,
+      billNumber: c.billNumber
     };
   });
 }
@@ -1056,6 +1273,9 @@ export async function generateSiteExpenseExcel({
       right: { style: c === 14 ? "medium" : "thin" }
     };
   }
+
+  // Attached Receipts Sheet (if receipts are attached)
+  appendAttachedReceiptsSheet(workbook, rows, "Attached Receipts");
 
   // Trigger browser download
   const buffer = await workbook.xlsx.writeBuffer();

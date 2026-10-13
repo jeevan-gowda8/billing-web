@@ -15,6 +15,7 @@ export default function SingleClaimTable({
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [viewingReceipt, setViewingReceipt] = useState(null);
 
   const filteredClaims = claims.filter((c) => {
     if (!searchTerm.trim()) return true;
@@ -260,6 +261,7 @@ export default function SingleClaimTable({
                   <th>Vendor Name</th>
                   <th>Bill / Invoice No</th>
                   <th style={{ textAlign: "right" }}>Claim Amount</th>
+                  <th style={{ textAlign: "center", width: "95px" }}>Receipt</th>
                   <th>Who Paid?</th>
                   <th>UPI ID</th>
                   <th>Project / Client</th>
@@ -303,6 +305,44 @@ export default function SingleClaimTable({
                       </td>
                       <td style={{ textAlign: "right", fontWeight: 600 }}>
                         ₹{(Number(claim.claimAmount) || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {claim.receiptImage || claim.receipt_image ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setViewingReceipt({
+                                title: `${claim.employeeName} — ${claim.vendorName || "Receipt"}`,
+                                subtitle: `Claim #${claim.id || idx + 1} | Bill No: ${claim.billNumber || "N/A"} | ₹${(Number(claim.claimAmount) || 0).toLocaleString("en-IN")}`,
+                                img: claim.receiptImage || claim.receipt_image
+                              })
+                            }
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              backgroundColor: "rgba(30, 58, 138, 0.08)",
+                              color: "var(--primary)",
+                              border: "1px solid rgba(30, 58, 138, 0.2)",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease"
+                            }}
+                            title="Click to view attached bill receipt"
+                          >
+                            <img
+                              src={claim.receiptImage || claim.receipt_image}
+                              alt="Receipt"
+                              style={{ width: "16px", height: "16px", objectFit: "cover", borderRadius: "3px" }}
+                            />
+                            <span>Bill</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: "12px", color: "var(--on-surface-variant)", opacity: 0.6 }}>—</span>
+                        )}
                       </td>
                       <td>{claim.whoPaid}</td>
                       <td style={{ fontFamily: "monospace", fontSize: "11px", color: "var(--on-surface-variant)" }}>
@@ -373,6 +413,62 @@ export default function SingleClaimTable({
           </div>
         </div>
       </div>
+
+      {/* Lightbox Modal for viewing uploaded receipt */}
+      {viewingReceipt && (
+        <div
+          className="modal-overlay"
+          onClick={() => setViewingReceipt(null)}
+          style={{ zIndex: 110, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div
+            className="modal-card"
+            style={{ maxWidth: "680px", width: "95%", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 className="modal-title" style={{ fontSize: "16px" }}>{viewingReceipt.title}</h3>
+                <p style={{ fontSize: "12px", color: "var(--on-surface-variant)", margin: 0 }}>
+                  {viewingReceipt.subtitle}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setViewingReceipt(null)}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div style={{ padding: "1rem", overflowY: "auto", textAlign: "center", backgroundColor: "var(--surface-container-low)" }}>
+              <img
+                src={viewingReceipt.img}
+                alt="Attached Receipt"
+                style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: "0.5rem", boxShadow: "var(--shadow-md)" }}
+              />
+            </div>
+            <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+              <a
+                href={viewingReceipt.img}
+                download="bill-receipt.jpg"
+                className="btn-stitch-secondary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>download</span>
+                <span>Download Bill</span>
+              </a>
+              <button
+                type="button"
+                className="btn-stitch-primary"
+                onClick={() => setViewingReceipt(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

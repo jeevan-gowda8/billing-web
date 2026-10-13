@@ -21,6 +21,7 @@ class SingleClaimBase(BaseModel):
     upi_id: Optional[str] = Field(default="", alias="upiId")
     project_name: Optional[str] = Field(default="", alias="projectName")
     remarks: Optional[str] = Field(default="", alias="remarks")
+    receipt_image: Optional[str] = Field(default="", alias="receiptImage")
 
 class SingleClaimCreate(SingleClaimBase):
     pass
@@ -47,6 +48,7 @@ class TeamClaimBase(BaseModel):
     bill_number: Optional[str] = Field(default="", alias="billNumber")
     total_bill_amount: float = Field(..., alias="totalBillAmount")
     remarks: Optional[str] = Field(default="", alias="remarks")
+    receipt_image: Optional[str] = Field(default="", alias="receiptImage")
 
 class TeamClaimCreate(TeamClaimBase):
     selected_members: Optional[List[dict]] = Field(default=[], alias="selectedMembers")

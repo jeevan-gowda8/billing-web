@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   DESIGNATION_GRADES,
   CITY_TIERS,
@@ -30,17 +30,21 @@ export default function SingleClaimFormModal({
     whoPaid: "Paid by Employee",
     upiId: "",
     projectName: "",
-    remarks: ""
+    remarks: "",
+    receiptImage: ""
   });
 
   const [errors, setErrors] = useState({});
+  const fileInputRef = useRef(null);
+  const [previewImageModal, setPreviewImageModal] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       setFormData({
         ...initialData,
         claimAmount: initialData.claimAmount || "",
-        duration: initialData.duration || 1
+        duration: initialData.duration || 1,
+        receiptImage: initialData.receiptImage || ""
       });
     } else {
       setFormData({
@@ -58,11 +62,61 @@ export default function SingleClaimFormModal({
         whoPaid: "Paid by Employee",
         upiId: "",
         projectName: "",
-        remarks: ""
+        remarks: "",
+        receiptImage: ""
       });
     }
     setErrors({});
   }, [initialData, isOpen]);
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload a valid image file (PNG, JPG, JPEG, WEBP).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Compress/resize if larger than 1200px
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+
+        setFormData((prev) => ({ ...prev, receiptImage: compressedBase64 }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveReceipt = () => {
+    setFormData((prev) => ({ ...prev, receiptImage: "" }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -402,6 +456,142 @@ export default function SingleClaimFormModal({
                   onChange={handleChange}
                 ></textarea>
               </div>
+
+              {/* Optional Bill Receipt / Invoice Image Upload */}
+              <div className="form-field-group col-span-3" style={{ marginTop: "0.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
+                  <label className="modal-label" style={{ fontWeight: 600, color: "var(--on-surface)", display: "flex", alignItems: "center", gap: "0.35rem", margin: 0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "17px", color: "var(--primary)" }}>
+                      receipt_long
+                    </span>
+                    <span>Bill Receipt / Invoice Image</span>
+                    <span style={{ fontSize: "11px", color: "var(--on-surface-variant)", fontWeight: 400 }}>
+                      (Optional · Embedded into Excel)
+                    </span>
+                  </label>
+                  {formData.receiptImage && (
+                    <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 600, display: "flex", alignItems: "center", gap: "2px" }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>check_circle</span>
+                      Receipt Attached
+                    </span>
+                  )}
+                </div>
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageFileChange}
+                  style={{ display: "none" }}
+                />
+
+                {!formData.receiptImage ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: "2px dashed var(--outline-variant)",
+                      borderRadius: "0.5rem",
+                      padding: "1rem",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      backgroundColor: "var(--surface-container-low)",
+                      transition: "var(--transition)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "0.35rem"
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--outline-variant)")}
+                  >
+                    <div style={{ width: "36px", height: "36px", borderRadius: "50%", backgroundColor: "var(--surface-container)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
+                        add_photo_alternate
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--on-surface)" }}>
+                      Click to upload bill photo or tax invoice
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--on-surface-variant)" }}>
+                      PNG, JPG, or WEBP. Automatically optimized and embedded into Excel export.
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "0.75rem 1rem",
+                      borderRadius: "0.5rem",
+                      border: "1px solid var(--outline-variant)",
+                      backgroundColor: "var(--surface-container-low)",
+                      flexWrap: "wrap",
+                      gap: "0.75rem"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <img
+                        src={formData.receiptImage}
+                        alt="Receipt preview"
+                        onClick={() => setPreviewImageModal(true)}
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          objectFit: "cover",
+                          borderRadius: "0.375rem",
+                          border: "1px solid var(--outline-variant)",
+                          cursor: "pointer",
+                          boxShadow: "var(--shadow-sm)"
+                        }}
+                        title="Click to view full image"
+                      />
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--on-surface)", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                          <span>Bill Receipt Photo</span>
+                          <span style={{ fontSize: "10px", backgroundColor: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: "10px", fontWeight: 700 }}>
+                            ATTACHED
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--on-surface-variant)" }}>
+                          Attached for {formData.vendorName || "this claim"} · Embedded in Excel
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        className="btn-stitch-secondary"
+                        onClick={() => setPreviewImageModal(true)}
+                        style={{ padding: "0.35rem 0.65rem", fontSize: "11px" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>visibility</span>
+                        <span>Preview</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-stitch-secondary"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{ padding: "0.35rem 0.65rem", fontSize: "11px" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>swap_horiz</span>
+                        <span>Change</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-stitch-secondary"
+                        onClick={handleRemoveReceipt}
+                        style={{ padding: "0.35rem 0.65rem", fontSize: "11px", color: "var(--error)" }}
+                        title="Remove attached receipt"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>delete</span>
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Live Policy Limit Validation Box matching Stitch UI */}
@@ -435,6 +625,51 @@ export default function SingleClaimFormModal({
             </button>
           </div>
         </form>
+
+        {/* Lightbox Modal for Receipt Full Preview */}
+        {previewImageModal && formData.receiptImage && (
+          <div
+            className="modal-overlay"
+            style={{ zIndex: 100, backgroundColor: "rgba(0, 0, 0, 0.85)" }}
+            onClick={() => setPreviewImageModal(false)}
+          >
+            <div
+              style={{
+                position: "relative",
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center"
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", color: "#ffffff", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                  Bill Receipt Preview — {formData.vendorName || formData.billNumber || "Attached Receipt"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageModal(false)}
+                  style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer" }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "24px" }}>close</span>
+                </button>
+              </div>
+              <img
+                src={formData.receiptImage}
+                alt="Full receipt"
+                style={{
+                  maxWidth: "85vw",
+                  maxHeight: "80vh",
+                  borderRadius: "0.5rem",
+                  objectFit: "contain",
+                  boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

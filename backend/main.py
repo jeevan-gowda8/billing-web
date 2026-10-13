@@ -70,7 +70,7 @@ def get_single_claims(db: sqlite3.Connection = Depends(get_db)):
     cursor.execute("""
         SELECT id, sl_no, employee_name, employee_email, designation, department,
                expense_date, category, city_tier, duration, vendor_name, bill_number,
-               claim_amount, who_paid, upi_id, project_name, remarks
+               claim_amount, who_paid, upi_id, project_name, remarks, receipt_image
         FROM reimbursement_claims
         ORDER BY id ASC
     """)
@@ -92,13 +92,15 @@ def create_single_claim(claim: SingleClaimCreate, db: sqlite3.Connection = Depen
         INSERT INTO reimbursement_claims (
             sl_no, employee_name, employee_email, designation, department,
             expense_date, category, city_tier, duration, vendor_name,
-            bill_number, claim_amount, who_paid, upi_id, project_name, remarks
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            bill_number, claim_amount, who_paid, upi_id, project_name, remarks,
+            receipt_image
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         sl_no, claim.employee_name, claim.employee_email, claim.designation,
         claim.department, claim.expense_date, claim.category, claim.city_tier,
         claim.duration, claim.vendor_name, claim.bill_number, claim.claim_amount,
-        claim.who_paid, claim.upi_id, claim.project_name, claim.remarks
+        claim.who_paid, claim.upi_id, claim.project_name, claim.remarks,
+        claim.receipt_image
     ))
     db.commit()
     new_id = cursor.lastrowid
@@ -130,13 +132,15 @@ def update_single_claim(claim_id: int, claim: SingleClaimCreate, db: sqlite3.Con
             who_paid = ?,
             upi_id = ?,
             project_name = ?,
-            remarks = ?
+            remarks = ?,
+            receipt_image = ?
         WHERE id = ?
     """, (
         claim.employee_name, claim.employee_email, claim.designation,
         claim.department, claim.expense_date, claim.category, claim.city_tier,
         claim.duration, claim.vendor_name, claim.bill_number, claim.claim_amount,
         claim.who_paid, claim.upi_id, claim.project_name, claim.remarks,
+        claim.receipt_image,
         claim_id
     ))
     db.commit()
@@ -188,14 +192,14 @@ def create_team_claim(claim: TeamClaimCreate, db: sqlite3.Connection = Depends(g
                 tour_claim_ref, advance_holder_name, advance_holder_email,
                 advance_holder_title, who_paid, advance_holder_upi, tour_title,
                 expense_date, category, city_tier, duration, vendor_name,
-                bill_number, total_bill_amount, remarks
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                bill_number, total_bill_amount, remarks, receipt_image
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             claim.tour_claim_ref, claim.advance_holder_name, claim.advance_holder_email,
             claim.advance_holder_title, claim.who_paid, claim.advance_holder_upi,
             claim.tour_title, claim.expense_date, claim.category, claim.city_tier,
             claim.duration, claim.vendor_name, claim.bill_number, claim.total_bill_amount,
-            claim.remarks
+            claim.remarks, claim.receipt_image
         ))
         db.commit()
     except sqlite3.IntegrityError:
@@ -275,14 +279,15 @@ def update_team_claim(claim_id: int, claim: TeamClaimCreate, db: sqlite3.Connect
             vendor_name = ?,
             bill_number = ?,
             total_bill_amount = ?,
-            remarks = ?
+            remarks = ?,
+            receipt_image = ?
         WHERE id = ?
     """, (
         claim.tour_claim_ref, claim.advance_holder_name, claim.advance_holder_email,
         claim.advance_holder_title, claim.who_paid, claim.advance_holder_upi,
         claim.tour_title, claim.expense_date, claim.category, claim.city_tier,
         claim.duration, claim.vendor_name, claim.bill_number, claim.total_bill_amount,
-        claim.remarks, claim_id
+        claim.remarks, claim.receipt_image, claim_id
     ))
 
     # Cascade ref change to roster

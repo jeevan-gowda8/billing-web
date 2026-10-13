@@ -38,6 +38,7 @@ def init_db():
         upi_id TEXT,
         project_name TEXT,
         remarks TEXT,
+        receipt_image TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
@@ -61,9 +62,21 @@ def init_db():
         bill_number TEXT,
         total_bill_amount REAL NOT NULL,
         remarks TEXT,
+        receipt_image TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    # Safe column migrations for existing databases
+    try:
+        cursor.execute("ALTER TABLE reimbursement_claims ADD COLUMN receipt_image TEXT;")
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE team_tour_claims ADD COLUMN receipt_image TEXT;")
+    except Exception:
+        pass
 
     # Table 3: Team Roster Members
     cursor.execute("""
